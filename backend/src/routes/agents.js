@@ -596,12 +596,15 @@ router.post('/agents/:address/deactivate', requireAgentsContract, ownerAuth, asy
 const MAX_I128 = (1n << 127n) - 1n;
 
 const stroopsSchema = z
-  .union([
-    z.number().int('Stroops amount must be an integer').nonnegative('Stroops amount must be non-negative'),
-    z.string().regex(/^\d+$/, 'Stroops amount must be a non-negative integer string'),
-  ], {
-    errorMap: () => ({ message: 'Stroops amount must be a non-negative integer (number or string)' }),
-  })
+  .union(
+    [
+      z.number().int('Stroops amount must be an integer').nonnegative('Stroops amount must be non-negative'),
+      z.string().regex(/^\d+$/, 'Stroops amount must be a non-negative integer string'),
+    ],
+    {
+      error: 'Stroops amount must be a non-negative integer (number or string)',
+    }
+  )
   .refine(
     (val) => {
       try {
@@ -617,34 +620,25 @@ const stroopsSchema = z
 export const updatePolicyParamsSchema = z.object({
   address: z
     .string({
-      required_error: '`address` is required',
-      invalid_type_error: '`address` must be a string',
+      error: (iss) => (iss.input === undefined ? '`address` is required' : '`address` must be a string'),
     })
     .regex(/^G[A-Z2-7]{55}$/, 'Invalid Stellar address format'),
 });
 
-export const updatePolicyQuerySchema = z.object({}).strict({
-  message: 'Unexpected query parameters',
-});
+export const updatePolicyQuerySchema = z.object({}, { error: 'Unexpected query parameters' }).strict();
 
 export const updatePolicyBodySchema = z.object({
   maxPerTxStroops: stroopsSchema,
   maxPerDayStroops: stroopsSchema,
   allowedCategories: z.array(
-    z.string({ invalid_type_error: 'Category must be a string' })
+    z.string({ error: 'Category must be a string' })
       .trim()
       .min(1, 'Category must be a non-empty string')
       .max(64, 'Category too long'),
-    {
-      required_error: '`allowedCategories` must be an array of strings',
-      invalid_type_error: '`allowedCategories` must be an array of strings',
-    }
+    { error: '`allowedCategories` must be an array of strings' }
   ),
   minScoreToEarn: z
-    .number({
-      required_error: '`minScoreToEarn` must be a number',
-      invalid_type_error: '`minScoreToEarn` must be a number',
-    })
+    .number({ error: '`minScoreToEarn` must be a number' })
     .int('`minScoreToEarn` must be an integer')
     .min(0, '`minScoreToEarn` must be between 0 and 1000')
     .max(1000, '`minScoreToEarn` must be between 0 and 1000'),
@@ -693,6 +687,7 @@ export function validateUpdatePolicy(req, res, next) {
     });
   }
 
+  req.body = bodyResult.data;
   next();
 }
 

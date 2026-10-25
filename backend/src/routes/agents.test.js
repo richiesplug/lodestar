@@ -367,6 +367,27 @@ describe('POST /agents/:address/update-policy validation', () => {
     );
   });
 
+  it('trims allowedCategories before passing to contract', async () => {
+    mockGetAgent.mockResolvedValueOnce({ owner: VALID_ADDR });
+    mockUpdatePolicyOnChain.mockResolvedValueOnce(true);
+
+    const res = await request(app)
+      .post(`/agents/${VALID_ADDR}/update-policy`)
+      .set('x-caller-address', VALID_ADDR)
+      .set('x-caller-signature', 'valid-sig')
+      .send({ ...VALID_BODY, allowedCategories: ['  weather  ', '  search  '] });
+
+    expect(res.status).toBe(200);
+    expect(mockUpdatePolicyOnChain).toHaveBeenCalledWith(
+      VALID_ADDR,
+      '1000000',
+      5000000,
+      ['weather', 'search'],
+      500,
+      VALID_ADDR
+    );
+  });
+
   describe('missing values', () => {
     it('returns 400 INVALID_BODY when maxPerTxStroops is missing', async () => {
       const { maxPerTxStroops, ...body } = VALID_BODY;
@@ -406,6 +427,7 @@ describe('POST /agents/:address/update-policy validation', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('INVALID_BODY');
+      expect(res.body.error).toBe('`allowedCategories` must be an array of strings');
       expect(mockUpdatePolicyOnChain).not.toHaveBeenCalled();
       expect(mockGetAgent).not.toHaveBeenCalled();
     });
@@ -604,7 +626,7 @@ describe('POST /agents/:address/update-policy validation', () => {
         .send(VALID_BODY);
 
       expect(res.status).toBe(400);
-      expect(['INVALID_PARAMS', 'INVALID_ADDRESS']).toContain(res.body.code);
+      expect(res.body.code).toBe('INVALID_ADDRESS');
       expect(mockUpdatePolicyOnChain).not.toHaveBeenCalled();
       expect(mockGetAgent).not.toHaveBeenCalled();
     });
